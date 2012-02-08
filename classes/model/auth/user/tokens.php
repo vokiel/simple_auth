@@ -51,12 +51,12 @@ class Model_Auth_User_Tokens extends authmodeler {
 						{
 							$this->delete_expired();
 							$this->clear_data();
-							cookie::delete(Kohana::config('simpleauth.cookie_key'));
+							cookie::delete(Kohana::$config->load('simpleauth.cookie_key'));
 						}
 					} 
 					else
 					{
-						cookie::delete(Kohana::config('simpleauth.cookie_key'));
+						cookie::delete(Kohana::$config->load('simpleauth.cookie_key'));
 					}
 				}
 	}

@@ -17,19 +17,19 @@ class Model_Auth_Users extends authmodeler {
 
 	protected $table_name = 'auth_users';
 	
-	protected $unique = '';
-	protected $second = '';
-	protected $password = '';
+	protected $unique_field = '';
+	protected $second_field = '';
+	protected $password_field = '';
 		
 	protected $data = array('id' => '',
 						'username' => '',
 						'password' => '',
 						'email' => '',
 						'logins' => '',
-						'admin' => '',
+						'admin'=>'',
+						'moderator'=>'',
 						'active' => '',
 						'active_to'=>'',
-						'moderator' => '',
 						'ip_address'=>'',
 						'last_ip_address'=>'',
 						'time_stamp'=>'',
@@ -42,16 +42,16 @@ class Model_Auth_Users extends authmodeler {
 	{
 		parent::__construct($id);
 		
-		$auth_config =  Kohana::config('simpleauth');
+		$auth_config =  Kohana::$config->load('simpleauth');
 		
-		$this->unique = $auth_config['unique'];
-		$this->second =  $auth_config['unique_second'];
-		$this->password =  $auth_config['password']; 
+		$this->unique_field = $auth_config['unique'];
+		$this->second_field =  $auth_config['unique_second'];
+		$this->password_field =  $auth_config['password']; 
 	}
 
 	public function get_user($unique, $pass)
 	{
-		$data =  db::select('*')->from($this->table_name)->where($this->unique,'=',$unique)->and_where($this->password,'=',$pass)->execute();
+		$data =  db::select('*')->from($this->table_name)->where($this->unique_field,'=',$unique)->and_where($this->password_field,'=',$pass)->execute();
 
 		if (count($data) === 1 AND $data = $data->current())
 		{
@@ -71,12 +71,31 @@ class Model_Auth_Users extends authmodeler {
 	{
 		if (!empty($second))
 		{
-			return count(db::select('id')->from($this->table_name)->where($this->unique, '=' , $name)->or_where($this->second, '=', $second)->execute());
+			return count(db::select('id')->from($this->table_name)->where($this->unique_field, '=' , $name)->or_where($this->second_field, '=', $second)->execute());
 		}
 		else
 		{
-			return count(db::select('id')->from($this->table_name)->where($this->unique, '=' ,$name)->execute());
+			return count(db::select('id')->from($this->table_name)->where($this->unique_field, '=' ,$name)->execute());
 		}
+	}
+	
+	public function save()
+	{
+		if ($this->is_sha1($this->password_field))
+		{
+			$password_field = $this->password_field;
+			$this->$password_field = SimpleAuth::Instance()->hash($this->$password_field);
+		}
+		if (!$this->is_sha1($this->{$this->password_field}))
+		{
+			$this->{$this->password_field} = SimpleAuth::Instance()->hash($this->{$this->password_field});
+		}		
+		return parent::save();
+	}
+	
+	public static function is_sha1($str = '') 
+	{
+		return (bool) preg_match('/^[0-9a-f]{40}$/i', $str);
 	}
 	
 } // End Auth Users Model

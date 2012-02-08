@@ -45,7 +45,7 @@ class authmodeler_Core extends Model_Database {
 	*/
 	public function __construct($id = NULL)
 	{
-		parent::__construct();
+		//parent::__construct();
           
 		$this->load_columns();
 		
@@ -138,7 +138,7 @@ class authmodeler_Core extends Model_Database {
 			$id = db::insert($this->table_name, array_keys($data_to_save))->values($data_to_save)->execute();
 			if ($id)
 			{
-				$this->data[$this->primary_key] = $id;
+				$this->data[$this->primary_key] = $id[0];
 				$this->data_original = $this->data;
 			}
 			else
@@ -332,7 +332,8 @@ class authmodeler_Core extends Model_Database {
 	public function __sleep()
 	{
 		// Store only information about the object without db property
-		return array_diff(array_keys(get_object_vars($this)), array('db'));
+		//return array_diff(array_keys(get_object_vars($this)), array('db'));
+		return array_diff(array_keys(get_object_vars($this)), array('_db'));
 	}
 	
 	/**
@@ -343,7 +344,8 @@ class authmodeler_Core extends Model_Database {
 	public function __wakeup()
 	{
 		// Initialize database
-		$this->db = Database::instance();
+		//$this->db = Database::instance();
+		$this->_db = Database::instance();
 	}
 	
 	public function __isset($key)

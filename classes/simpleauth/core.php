@@ -30,7 +30,7 @@ class simpleauth_Core {
 	public function __construct($config = 'simpleauth')
 	{
 		// Save the config in the object
-		$this->config = Kohana::config($config);
+		$this->config = Kohana::$config->load($config);
 		$this->session = Session::instance();
 	}
 	
@@ -59,6 +59,26 @@ class simpleauth_Core {
 		empty($instance) and $instance = new simpleauth($config);
 
 		return $instance;
+	}
+	
+	/**
+	 * Return a static instance of Simple_Auth.
+	 *
+	 * @param array $config configuration 
+	 * @return object
+	 */
+	public function is_admin()
+	{
+		$is_admin = FALSE;
+
+		$user = $this->session->get($this->config['session_key']);
+
+		if (is_object($user) AND $user instanceof simpleuser)
+		{
+			$is_admin = in_array($user->role_id, $this->config['is_admin']);
+		}
+
+		return $is_admin;	
 	}
 	
 	/**
@@ -213,20 +233,17 @@ class simpleauth_Core {
 	 */
 	public function get_user($user = 0)
 	{
-		if (( ! is_object($user)) AND (intval($user) === 0) AND ($this->logged_in())) 
+		$user = intval($user);
+		if (($user === 0) AND ($this->logged_in())) 
 			return $this->session->get($this->config['session_key']);
 
-		if (is_object($user) AND ($user instanceof simpleuser OR $user instanceof Model_Auth_Users)) 
-		{
-			if ($user->loaded())  
-				return $user;
-		}
-
-		if (( ! is_object($user)) AND (intval($user) !== 0)) 
+		if ($user !== 0) 
 		{	
-			$user_model = authmodeler::instance('auth_users')->load(intval($user));
+			$user_model = authmodeler::instance('auth_users')->load($user);
 			if ($user_model->loaded())
+			{
 				return $user_model;
+			}
 		}
 
 		return FALSE; 
@@ -327,7 +344,7 @@ class simpleauth_Core {
 			}
 	
 			$user->set_fields($user_data->as_array());
-			$user->{$password_field} = $this->hash($user->{$password_field});
+			//$user->{$password_field} = $this->hash($user->{$password_field});
 	
 			return ($result = $user->save()) ? $result : FALSE;
 		} 
@@ -338,28 +355,63 @@ class simpleauth_Core {
 	/**
 	* Deletes user from db 
 	*
-	* @param object|integer $user unique user id
+	* @param integer $user unique user id
 	* @return boolean
 	*/
-	public function delete_user($user = 0) 
+	public function delete_user($id = 0) 
 	{		
-
-		if (is_object($user) AND ($user instanceof simpleuser OR $user instanceof Model_Auth_Users)) 
-		{
-			$user_model = new Model_Auth_Users(intval($user->{$this->config['primary_key']})); 
-		
-			if ($user_model->loaded()) 
-				return ($user_model->delete()) ? TRUE : FALSE;
-		}
-
-		if (intval($user) === 0) 
+		$id = intval($id);
+		if (intval($id) === 0) 
 			return FALSE;
 	    
-		$user_model = new Model_Auth_Users(intval($user));
+		$user_model = new Model_Auth_Users($id);
 		if ( ! $user_model->loaded()) 
 			return FALSE;
 		
 		return ($user_model->delete()) ? TRUE : FALSE;  
+	}
+	
+	/**
+	* Modify user in db 
+	*
+	* @param array $data data to change
+	* @param integer $id optional user ID
+	* @return boolean
+	*/
+	public function modify_user($data = array(), $id = 0) 
+	{		
+		$result = FALSE;
+		if (!$this->logged_in()) 
+		{
+			return FALSE;
+		}
+			
+		if (empty($id))
+		{
+			$user = $this->get_user();
+			$user_model = new Model_Auth_Users(intval($user->id));
+
+		}
+		else
+		{
+			$user_model = new Model_Auth_Users(intval($id));
+		}
+		
+		if ($user_model->loaded())
+		{
+			foreach ($data as $key=>$value)
+			{
+				$user_model->$key = $value;
+			}
+			$result = $user_model->save();
+		}
+			
+		if ($result)
+		{
+			$this->reload_user();
+		}
+		
+		return $result;
 	}
 	
 	/**
@@ -402,20 +454,16 @@ class simpleauth_Core {
 	{
 		$password_field = $this->config['password'];
          
-		if (empty($password) OR ! is_string($password) OR ! is_string($login)) 
+        if (empty($password) OR empty($login) OR ! is_string($password) OR ! is_string($login))
 			return FALSE;
 
-		$user = new Model_Auth_Users;
-		$user->get_user($login, $this->hash($password));
+		$password = $this->hash($password);
+        $user = new Model_Auth_Users;
+		$user->get_user($login, $password);
 		
 		if ( ! $user->loaded()) 
 			return FALSE;
-
-		if (is_string($password))
-		{
-			$password = $this->hash($password);
-		}
-
+            
 		if ((intval($user->active) === 1) AND ($user->{$password_field} == $password))
 		{
 			if (strtotime($user->active_to) !== FALSE)
